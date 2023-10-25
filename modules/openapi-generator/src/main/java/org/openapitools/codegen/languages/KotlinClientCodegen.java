@@ -18,14 +18,13 @@
 package org.openapitools.codegen.languages;
 
 import java.io.File;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import io.swagger.v3.oas.models.Operation;
+import io.swagger.v3.oas.models.servers.Server;
 import org.apache.commons.lang3.StringUtils;
 import org.openapitools.codegen.CliOption;
 import org.openapitools.codegen.CodegenConstants;
@@ -89,6 +88,8 @@ public class KotlinClientCodegen extends AbstractKotlinCodegen {
     public static final String SUPPORT_ANDROID_API_LEVEL_25_AND_BELLOW = "supportAndroidApiLevel25AndBelow";
 
     protected static final String VENDOR_EXTENSION_BASE_NAME_LITERAL = "x-base-name-literal";
+
+    protected static final String IGNORE_HEADERS = "ignoreHeaders";
 
     protected String dateLibrary = DateLibrary.JAVA8.value;
     protected String requestDateConverter = RequestDateConverter.TO_JSON.value;
@@ -247,6 +248,8 @@ public class KotlinClientCodegen extends AbstractKotlinCodegen {
         cliOptions.add(CliOption.newBoolean(IDEA, "Add IntellJ Idea plugin and mark Kotlin main and test folders as source folders."));
 
         cliOptions.add(CliOption.newBoolean(MOSHI_CODE_GEN, "Whether to enable codegen with the Moshi library. Refer to the [official Moshi doc](https://github.com/square/moshi#codegen) for more info."));
+
+        cliOptions.add(CliOption.newBoolean(IGNORE_HEADERS, "Comma seperated header names to remove"));
 
         cliOptions.add(CliOption.newBoolean(NULLABLE_RETURN_TYPE, "Nullable return type"));
 
@@ -506,6 +509,42 @@ public class KotlinClientCodegen extends AbstractKotlinCodegen {
                 supportingFiles.add(new SupportingFile("auth/HttpBasicAuth.kt.mustache", authFolder, "HttpBasicAuth.kt"));
             }
         }
+    }
+
+    @Override
+    public CodegenOperation fromOperation(String path, String httpMethod, Operation operation, List<Server> servers) {
+        CodegenOperation op = super.fromOperation(path, httpMethod, operation, servers);
+        List<String> ignoreHeaders = getHeadersToIgnore();
+        ArrayList<CodegenParameter> removeList = new ArrayList<>();
+        for(CodegenParameter param : op.headerParams) {
+            boolean found = false;
+            for(String header : ignoreHeaders)
+            {
+                if(header.equals(param.baseName))
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if(found)
+                removeList.add(param);
+        }
+
+        for(CodegenParameter param : removeList) {
+            op.headerParams.remove(param);
+        }
+
+        return op;
+    }
+
+    protected List<String> getHeadersToIgnore() {
+        ArrayList<String> headerList = new ArrayList<String>();
+        String headerParam = (String)additionalProperties.get(IGNORE_HEADERS);
+        if (headerParam != null) {
+            String[] arr = headerParam.split(",");
+            Collections.addAll(headerList, arr);
+        }
+        return headerList;
     }
 
     private void processDateLibrary() {
