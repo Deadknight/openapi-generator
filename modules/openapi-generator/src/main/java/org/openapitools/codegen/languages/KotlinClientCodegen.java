@@ -532,6 +532,8 @@ public class KotlinClientCodegen extends AbstractKotlinCodegen {
 
         for(CodegenParameter param : removeList) {
             op.headerParams.remove(param);
+            op.allParams.remove(param);
+            op.requiredAndNotNullableParams.remove(param);
         }
 
         return op;
